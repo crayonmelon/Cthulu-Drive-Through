@@ -8,6 +8,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jump = 30;
     [SerializeField] private float speed = 15;
     [SerializeField] private float maxSpeed = 30;
+    [SerializeField] private float friction = .95f;
     [SerializeField] private float groundDistance = .5f;
     [SerializeField] private LayerMask groundMask;
     [SerializeField] private GameObject playerBody;
@@ -44,20 +45,27 @@ public class PlayerController : MonoBehaviour
 
         Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
 
-        if (direction.magnitude >= 0.1f & IsGrounded())
+        if (direction.magnitude >= 0.1f)
         {
             float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
             angle = Mathf.SmoothDampAngle(playerBody.transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
-           
-            rb.AddForce(playerBody.transform.forward * speed, ForceMode.VelocityChange);
+
+            if (IsGrounded())
+                rb.AddForce(playerBody.transform.forward * speed, ForceMode.VelocityChange);
+            else 
+                rb.AddForce(playerBody.transform.forward * .1f, ForceMode.VelocityChange);
 
             playerBody.transform.localRotation = Quaternion.Euler(
                 playerBody.transform.localRotation.x,
                 angle,
                 playerBody.transform.rotation.z);
+        } else {
+            if (IsGrounded())
+                rb.velocity = rb.velocity * friction;
         }
 
-        
+
+
         //setting the max speed
         if (rb.velocity.magnitude > maxSpeed) rb.velocity = rb.velocity.normalized * maxSpeed;
 
