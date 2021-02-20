@@ -1,14 +1,19 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
     [Header("Physics")]
     [SerializeField] private float jump = 30;
-    [SerializeField] private float speed = 15;
+    [SerializeField] private float speen = 15;
+    [SerializeField] private float speed = 5;
+    [SerializeField] private float slowSpeed = 1;
     [SerializeField] private float maxSpeed = 30;
     [SerializeField] private float friction = .95f;
+
+    [Header("Necc")]
     [SerializeField] private float groundDistance = .5f;
     [SerializeField] private LayerMask groundMask;
     [SerializeField] private GameObject playerBody;
@@ -17,58 +22,199 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform cam;
     [SerializeField] private float turnSmoothTime = 0.1f;
 
-
-    float turnSmoothVelocity;
-    float angle;
+    [Header("Text")]
+    [SerializeField] private TextMeshPro text;
+    
     private bool isJumpPressed = false;
-
+    private bool isSlowedDown = false;
+    private Vector3 direction;
     private Rigidbody rb;
+    private float turnSmoothVelocity;
+    private float angle;
+    private float SpeedLimit;
+
+    //Trick Values
+    private float Yangle;
+    private float Xangle;
+
+    private bool YFlagOne = false;
+    private bool YFlagTwo = false;
+
+    private bool XFlagOne = false;
+    private bool XFlagTwo = false;
+
+    private int trickFlipsAmount = 0;
+    private int trickSpeensAmount = 0;
+
+    private string trickSpeenText;
+    private string trickFlipsText;
 
     private void Awake()
     {
         rb = gameObject.GetComponent<Rigidbody>();
+        SpeedLimit = maxSpeed;
     }
 
     private void Update()
     {
         isJumpPressed = Input.GetButtonDown("Jump");
+        isSlowedDown = Input.GetButton("slowDown");
+
         if (IsGrounded() && isJumpPressed)
         {
-            Debug.Log("yo");
             rb.AddForce(Vector3.up * jump, ForceMode.VelocityChange);
         }
+
+        if(IsGrounded() && isSlowedDown)
+        {
+            if (SpeedLimit > slowSpeed)
+            {
+                SpeedLimit-= Time.deltaTime*20;
+            }
+            Debug.Log("for real");
+
+        }
+        else
+        {
+            SpeedLimit = maxSpeed;
+        }
+        Debug.Log("heelo " + SpeedLimit);
     }
 
     void FixedUpdate()
     {
-        GroundHug();
+        direction = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
+        float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
+        angle = Mathf.SmoothDampAngle(playerBody.transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
 
-        Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
-
-        if (direction.magnitude >= 0.1f)
+        if (IsGrounded())
         {
-            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
-            angle = Mathf.SmoothDampAngle(playerBody.transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
 
-            if (IsGrounded())
-                rb.AddForce(playerBody.transform.forward * speed, ForceMode.VelocityChange);
-            else 
-                rb.AddForce(playerBody.transform.forward * .1f, ForceMode.VelocityChange);
+            ResetTricks(); 
+
+            GroundHug();
+
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
 
             playerBody.transform.localRotation = Quaternion.Euler(
                 playerBody.transform.localRotation.x,
                 angle,
                 playerBody.transform.rotation.z);
-        } else {
-            if (IsGrounded())
-                rb.velocity = rb.velocity * friction;
+
+            if (direction.magnitude >= 0.1f)
+            {
+                rb.AddForce(playerBody.transform.forward * speed, ForceMode.VelocityChange);
+            }
+        }
+        else
+        {
+            CalculateTricks();
+
+            rb.constraints = RigidbodyConstraints.None;
+            if (direction.magnitude >= 0.1f)
+            {
+                rb.AddRelativeTorque(playerBody.transform.right * direction.z * speen, ForceMode.Acceleration);
+                rb.AddRelativeTorque(playerBody.transform.up * direction.x * speen, ForceMode.Acceleration);
+            }
+        }
+        //setting the max speed
+        if (rb.velocity.magnitude > SpeedLimit) 
+            rb.velocity = rb.velocity.normalized * SpeedLimit;
+
+        UpdateTrickText();
+    }
+
+    /// <summary>
+    /// to calculate when the player does a trick;
+    /// Flip: a full rotation on the Y axis
+    /// Speen: a full rotation on the X axis
+    /// </summary>
+    private void CalculateTricks()
+    {
+        Yangle = transform.rotation.eulerAngles.y;
+        Xangle = playerBody.transform.rotation.eulerAngles.x;
+
+        if (Xangle > 40f && Xangle < 120f)
+        {
+            Debug.Log("spin 90");
+            XFlagOne = true;
         }
 
+        if (Xangle > 160f && Xangle < 300f)
+        {
+            Debug.Log("spin 180");
+            XFlagTwo = true;
+        }
 
+        if (Xangle > 350 & XFlagOne & XFlagTwo)
+        {
+            trickFlipsAmount++;
+            Debug.Log("Spin " + trickFlipsAmount);
+            XFlagOne = false;
+            XFlagTwo = false;
+        }
 
-        //setting the max speed
-        if (rb.velocity.magnitude > maxSpeed) rb.velocity = rb.velocity.normalized * maxSpeed;
+        if (Yangle > 40f && Yangle < 120f)
+        {
+            Debug.Log("spin 90");
+            YFlagOne = true;
+        }
 
+        if (Yangle > 160f && Yangle < 300f)
+        {
+            Debug.Log("spin 180");
+            YFlagTwo = true;
+        }
+
+        if (Yangle > 350 & YFlagOne & YFlagTwo)
+        {
+            trickSpeensAmount++;
+            Debug.Log("Spin " + trickSpeensAmount);
+            YFlagOne = false;
+            YFlagTwo = false;
+        }
+    }
+
+    /// <summary>
+    /// Reset all values for calculating the tricks
+    /// called when the player hits the ground
+    /// </summary>
+    private void ResetTricks()
+    {
+        XFlagTwo = false;
+        XFlagOne = false;
+        trickFlipsAmount = 0;
+
+        YFlagTwo = false;
+        YFlagOne = false;
+        trickSpeensAmount = 0;
+
+        trickSpeenText = "";
+        trickFlipsText = "";
+
+    }
+
+    /// <summary>
+    /// Updates the trick text in the bottom left
+    /// </summary>
+    private void UpdateTrickText()
+    {
+        if(trickFlipsAmount > 0)
+            trickFlipsText = " Flips " + trickFlipsAmount + "<br>";
+
+        if(trickSpeensAmount > 0)
+        {
+            string letterE = "";
+
+            for(int i = 0; i < trickSpeensAmount; i++)
+            {
+                letterE = letterE + "e";
+            }
+            trickSpeenText = " Spe"+ letterE + "n!";
+
+        }
+
+text.SetText(trickFlipsText + trickSpeenText);
     }
    
    /// <summary>
@@ -84,6 +230,8 @@ public class PlayerController : MonoBehaviour
 
     private bool IsGrounded()
     {
-        return Physics.Raycast(transform.position, Vector3.down, groundDistance);
+        Debug.DrawRay(transform.position, transform.TransformDirection(Vector3.down) * groundDistance, Color.red);
+        Debug.DrawRay(transform.position, Vector3.down * groundDistance, Color.red);
+        return Physics.Raycast(transform.position, Vector3.down, groundDistance) || Physics.Raycast(transform.position, transform.TransformDirection(Vector3.down), groundDistance);
     }
 }
