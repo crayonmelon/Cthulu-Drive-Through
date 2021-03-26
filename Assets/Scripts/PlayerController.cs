@@ -45,18 +45,25 @@ public class PlayerController : MonoBehaviour
 
     private int trickFlipsAmount = 0;
     private int trickSpeensAmount = 0;
+    private int pedestrianHit = 0;
 
     private string trickSpeenText;
     private string trickFlipsText;
+    private string pedestrianHitText;
+
+    float countTimePedHit;
 
     private void Awake()
     {
         rb = gameObject.GetComponent<Rigidbody>();
         SpeedLimit = maxSpeed;
+        GameEvents.current.onPedestrainHit += OnPedestrainHit;
     }
 
     private void Update()
     {
+        pedestrainCounterReset();
+
         isJumpPressed = Input.GetButtonDown("Jump");
         isSlowedDown = Input.GetButton("slowDown");
 
@@ -71,14 +78,12 @@ public class PlayerController : MonoBehaviour
             {
                 SpeedLimit-= Time.deltaTime*20;
             }
-            Debug.Log("for real");
 
         }
         else
         {
             SpeedLimit = maxSpeed;
         }
-        Debug.Log("heelo " + SpeedLimit);
     }
 
     void FixedUpdate()
@@ -89,9 +94,7 @@ public class PlayerController : MonoBehaviour
 
         if (IsGrounded())
         {
-
             ResetTricks(); 
-
             GroundHug();
 
             rb.constraints = RigidbodyConstraints.FreezeRotation;
@@ -181,6 +184,12 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void ResetTricks()
     {
+        if(trickSpeensAmount != 0f || trickFlipsAmount != 0f)
+        {
+            GameEvents.current.ScoreChanged(trickSpeensAmount + trickFlipsAmount);
+
+        }
+
         XFlagTwo = false;
         XFlagOne = false;
         trickFlipsAmount = 0;
@@ -202,7 +211,18 @@ public class PlayerController : MonoBehaviour
         if(trickFlipsAmount > 0)
             trickFlipsText = " Flips " + trickFlipsAmount + "<br>";
 
-        if(trickSpeensAmount > 0)
+        if (pedestrianHit > 0)
+        {
+            string letterO = "";
+
+            for (int i = 0; i < pedestrianHit; i++)
+            {
+                letterO = letterO + "o";
+            }
+            pedestrianHitText = letterO + "ops" + "<br>";
+        }
+
+        if (trickSpeensAmount > 0)
         {
             string letterE = "";
 
@@ -210,11 +230,11 @@ public class PlayerController : MonoBehaviour
             {
                 letterE = letterE + "e";
             }
-            trickSpeenText = " Spe"+ letterE + "n!";
+            trickSpeenText = " Spe"+ letterE + "n!" + "<br>";
 
         }
 
-text.SetText(trickFlipsText + trickSpeenText);
+        text.SetText(trickFlipsText + trickSpeenText + pedestrianHitText);
     }
    
    /// <summary>
@@ -232,6 +252,40 @@ text.SetText(trickFlipsText + trickSpeenText);
     {
         Debug.DrawRay(transform.position, transform.TransformDirection(Vector3.down) * groundDistance, Color.red);
         Debug.DrawRay(transform.position, Vector3.down * groundDistance, Color.red);
-        return Physics.Raycast(transform.position, Vector3.down, groundDistance) || Physics.Raycast(transform.position, transform.TransformDirection(Vector3.down), groundDistance);
+        return Physics.Raycast(transform.position, Vector3.down, groundDistance, groundMask) || Physics.Raycast(transform.position, transform.TransformDirection(Vector3.down), groundDistance, groundMask);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Enemy"))
+        {
+            rb.AddForce(transform.up * 18, ForceMode.VelocityChange);
+            //rb.AddForce(transform.forward * 18, ForceMode.VelocityChange);
+
+        }
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Balloon"))
+        {
+            rb.AddForce(Vector3.up * 20, ForceMode.VelocityChange);
+        }
+    }
+    private void OnPedestrainHit(int hit)
+    {
+        countTimePedHit = 2.0f;
+        pedestrianHit++;
+    }
+
+    private void pedestrainCounterReset()
+    {
+        if (countTimePedHit > 0)
+        {
+            countTimePedHit -= Time.deltaTime;
+        } else
+        {
+            pedestrianHit = 0;
+            pedestrianHitText = "";
+        }
     }
 }

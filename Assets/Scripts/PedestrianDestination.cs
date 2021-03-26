@@ -28,7 +28,6 @@ public class PedestrianDestination : MonoBehaviour
     private void newPoint()
     {
         randomPoint = Random.Range(0, WaypointParent.transform.childCount);
-        Debug.Log("random number " + randomPoint);
         waypoint = WaypointParent.transform.GetChild(randomPoint).position;
         agent.SetDestination(waypoint);
     }
